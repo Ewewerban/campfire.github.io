@@ -3,48 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campfire Chat 🔥</title>
+    <title>Campfire</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="auth-screen" class="auth-container">
-        <h2 id="auth-title">Witaj ponownie!</h2>
-        <div class="subtitle" id="auth-subtitle">Cieszymy się, że znowu tu jesteś!</div>
+        <h2 id="auth-title">Campfire</h2>
+        <div class="subtitle">Zwykły, prosty komunikator</div>
         
-        <input type="text" id="auth-username" placeholder="Imię / Nick (np. druh Tomek)" style="display: none;">
+        <input type="text" id="auth-username" placeholder="Twoja nazwa użytkownika / Nick" style="display: none;">
         <input type="email" id="auth-email" placeholder="Adres e-mail">
-        <input type="password" id="auth-password" placeholder="Hasło">
-        
+        <input type="password" id="auth-password" placeholder="Hasło (min. 6 znaków)">
         <button id="auth-btn" onclick="handleAuth()">Zaloguj się</button>
-        <p id="auth-toggle-text">Potrzebujesz konta? <span onclick="toggleAuthMode()">Zarejestruj się</span></p>
+        <p id="auth-toggle-text">Nie masz konta? <span onclick="toggleAuthMode()">Zarejestruj się</span></p>
     </div>
 
     <div id="chat-screen" class="chat-interface">
         
         <div class="sidebar">
             <div class="sidebar-header">
-                <span>Kanały tekstowe</span>
-                <button class="create-group-btn" onclick="createNewGroupPrompt()" title="Stwórz kanał">+</button>
+                <span>Grupy i kanały</span>
+                <button class="create-group-btn" onclick="createNewGroupPrompt()" title="Stwórz nową grupę">+</button>
             </div>
+            
             <div class="groups-list" id="groups-list">
                 </div>
+            
             <div class="user-profile-bar">
                 <div class="profile-info">
                     <span class="display-name" id="profile-display-name">Wczytywanie...</span>
-                    <span class="user-email" id="profile-display-email">...</span>
+                    <span class="display-status" id="profile-display-status">Dostępny</span>
                 </div>
-                <button class="logout-btn" onclick="logout()">Wyloguj</button>
+                <div class="profile-actions">
+                    <button onclick="editProfilePrompt()">Edytuj profil</button>
+                    <button class="logout-btn" onclick="logout()">Wyloguj</button>
+                </div>
             </div>
         </div>
 
         <div class="chat-area">
-            <div class="chat-header" id="current-group-title"># ogólny</div>
+            <div class="chat-header" id="current-group-title"># ogłoszenia</div>
             <div id="messages-box" class="messages-box"></div>
             <div class="chat-input-area">
-                <div class="input-wrapper">
-                    <input type="text" id="message-input" placeholder="Napisz na tym kanale..." onkeypress="handleKeyPress(event)">
-                </div>
+                <input type="text" id="message-input" placeholder="Napisz coś..." onkeypress="handleKeyPress(event)">
+                <button id="send-btn" onclick="sendMessage()">Wyślij</button>
             </div>
         </div>
 
@@ -53,7 +56,10 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, doc, updateDoc, arrayUnion, query, orderBy, where, onSnapshot, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, doc, setDoc, getDoc, updateDoc, arrayUnion, query, orderBy, where, onSnapshot, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+        // WPISZ SWÓJ E-MAIL JAKO ADMINISTRATORA, ŻEBY MÓC PISAĆ NA KANALE OGŁOSZEŃ:
+        const ADMIN_EMAIL = "sowaadamek@gmail.com"; 
 
         const firebaseConfig = {
             apiKey: "AIzaSyCgmxeFXJy4rNXMOwDy8UOj2Xt7MMMUtmM",
@@ -70,48 +76,63 @@
 
         let isSignUpMode = false;
         let currentUser = null;
-        let activeGroupId = "ogolny"; 
+        let userProfileData = { name: "Użytkownik", status: "Dostępny" };
+        let activeGroupId = "ogloszenia"; 
         let unsubscribeMessages = null;
 
-        // Sprawdzanie czy w adresie URL jest kod zaproszenia (np. ?invite=xyz)
         const urlParams = new URLSearchParams(window.location.search);
         const inviteCodeFromUrl = urlParams.get('invite');
 
-        // FUNKCJA: Stworzenie nowej grupy z unikalnym kodem zaproszenia
+        // FUNKCJA: Tworzenie nowej grupy / kanału prywatnego
         window.createNewGroupPrompt = async function() {
-            const groupName = prompt("Wpisz nazwę nowego kanału tekstowego:");
+            const groupName = prompt("Wpisz nazwę nowej grupy (np. Projekty, Ekipa):");
             if (!groupName) return;
 
-            // Generujemy losowy, bezpieczny kod zaproszenia
             const inviteCode = Math.random().toString(36).substring(2, 8);
+            const cleanName = groupName.toLowerCase().replace(/\s+/g, '-');
 
-            // Zapisujemy nową grupę w bazie
-            const docRef = await addDoc(collection(db, "channels"), {
-                name: groupName.toLowerCase().replace(/\s+/g, '-'),
+            await addDoc(collection(db, "channels"), {
+                name: cleanName,
                 inviteCode: inviteCode,
-                members: [currentUser.email] // Twórca od razu ma dostęp
+                members: [currentUser.email]
             });
 
-            alert(`Utworzono kanał #${groupName}!\n\nKod zaproszenia to: ${inviteCode}\nMożesz też skopiować link bezpośredni po najechaniu na kanał.`);
+            alert(`Utworzono grupę: #${cleanName}!\nKod zaproszenia: ${inviteCode}\nLink do skopiowania znajdziesz pod nazwą grupy na liście.`);
         }
 
-        // FUNKCJA: Pobieranie i kopiowanie linku zaproszenia dla grupy
+        // FUNKCJA: Kopiowanie linku zaproszenia
         window.copyInviteLink = function(e, inviteCode) {
-            e.stopPropagation(); // zatrzymanie kliknięcia, by nie przełączać kanału
+            e.stopPropagation();
             const cleanUrl = window.location.href.split('?')[0];
             const inviteUrl = `${cleanUrl}?invite=${inviteCode}`;
             
             navigator.clipboard.writeText(inviteUrl).then(() => {
-                alert("Skopiowano link zaproszenia do schowka! Wyślij go znajomym.");
-            }).catch(() => {
-                alert(`Nie udało się skopiować automatycznie. Wyślij znajomemu ten kod: ${inviteCode}`);
+                alert("Skopiowano link zaproszenia! Wyślij go znajomym, aby dołączyli do grupy.");
             });
         }
 
-        // Obsługa wchodzenia przez link z zaproszeniem
+        // FUNKCJA: Zwykły Edytor Profilu (Imię i Status)
+        window.editProfilePrompt = async function() {
+            const newName = prompt("Wpisz nową nazwę użytkownika / nick:", userProfileData.name);
+            if (!newName) return;
+            const newStatus = prompt("Wpisz swój status / opis (np. Zajęty, Koduję...):", userProfileData.status);
+            
+            userProfileData.name = newName;
+            userProfileData.status = newStatus || "Dostępny";
+
+            await setDoc(doc(db, "users", currentUser.uid), {
+                name: userProfileData.name,
+                status: userProfileData.status
+            }, { merge: true });
+
+            document.getElementById("profile-display-name").innerText = userProfileData.name;
+            document.getElementById("profile-display-status").innerText = userProfileData.status;
+            alert("Profil zaktualizowany!");
+        }
+
+        // Sprawdzanie zaproszenia z linku URL
         async function checkAndApplyInvite(userEmail) {
             if (!inviteCodeFromUrl) return;
-
             const q = query(collection(db, "channels"), where("inviteCode", "==", inviteCodeFromUrl));
             const querySnapshot = await getDocs(q);
 
@@ -119,21 +140,17 @@
                 querySnapshot.forEach(async (channelDoc) => {
                     const channelData = channelDoc.data();
                     if (!channelData.members.includes(userEmail)) {
-                        // Dodaj użytkownika do listy członków tej ukrytej grupy
                         await updateDoc(doc(db, "channels", channelDoc.id), {
                             members: arrayUnion(userEmail)
                         });
-                        alert(`Pomyślnie dołączyłeś do kanału: #${channelData.name}! 🎉`);
+                        alert(`Dołączyłeś do grupy: #${channelData.name}!`);
                     }
-                    // Czyścimy URL z kodu, by przy odświeżeniu nie pokazywać alertu ponownie
                     window.history.replaceState({}, document.title, window.location.href.split('?')[0]);
                 });
-            } else {
-                alert("Ten link zaproszenia jest nieaktywny lub wygasł.");
             }
         }
 
-        // Słuchacz bazy danych: wyświetla tylko kanały, do których użytkownik ma dostęp (SĄ UKRYTE DLA INNYCH!)
+        // Pobieranie listy dostępnych grup użytkownika
         function listenToMyChannels() {
             const q = query(collection(db, "channels"), where("members", "array-contains", currentUser.email));
             
@@ -141,18 +158,21 @@
                 const listContainer = document.getElementById("groups-list");
                 listContainer.innerHTML = "";
 
-                // Zawsze na górze dodajemy domyślny kanał ogólny (widoczny dla wszystkich)
+                // Kanał ogólny (ogłoszenia) dostępny domyślnie dla każdego
                 const mainBtn = document.createElement("button");
-                mainBtn.className = `group-item ${activeGroupId === "ogolny" ? "active" : ""}`;
-                mainBtn.innerHTML = `<span># ogólny</span>`;
-                mainBtn.onclick = () => selectChannel("ogolny", "# ogólny");
+                mainBtn.className = `group-item ${activeGroupId === "ogloszenia" ? "active" : ""}`;
+                mainBtn.innerHTML = `<span class="channel-name"># ogłoszenia</span>`;
+                mainBtn.onclick = () => selectChannel("ogloszenia", "# ogłoszenia");
                 listContainer.appendChild(mainBtn);
 
                 snapshot.forEach((doc) => {
                     const data = doc.data();
                     const btn = document.createElement("button");
                     btn.className = `group-item ${activeGroupId === doc.id ? "active" : ""}`;
-                    btn.innerHTML = `<span># ${data.name}</span> <span class="invite-icon" onclick="copyInviteLink(event, '${data.inviteCode}')">Zapś</span>`;
+                    btn.innerHTML = `
+                        <span class="channel-name"># ${data.name}</span>
+                        <button class="invite-link-btn" onclick="copyInviteLink(event, '${data.inviteCode}')">Skopiuj link zaproszenia</button>
+                    `;
                     btn.onclick = () => selectChannel(doc.id, `# ${data.name}`);
                     listContainer.appendChild(btn);
                 });
@@ -162,18 +182,32 @@
         function selectChannel(id, displayName) {
             activeGroupId = id;
             document.getElementById("current-group-title").innerText = displayName;
-            listenToMyChannels(); // Odśwież podświetlenie aktywnego kanału
-            loadMessages(); // Załaduj wiadomości dla wybranego kanału
+            
+            const inputField = document.getElementById("message-input");
+            const sendBtn = document.getElementById("send-btn");
+            
+            // Blokada kanału ogłoszeń dla zwykłych użytkowników
+            if (id === "ogloszenia" && currentUser.email !== ADMIN_EMAIL) {
+                inputField.disabled = true;
+                inputField.placeholder = "Tylko administrator może tu pisać.";
+                sendBtn.style.display = "none";
+            } else {
+                inputField.disabled = false;
+                inputField.placeholder = "Napisz wiadomość...";
+                sendBtn.style.display = "block";
+            }
+
+            listenToMyChannels();
+            loadMessages();
         }
 
-        // LOGOWANIE / REJESTRACJA
+        // OBSŁUGA REJESTRACJI I LOGOWANIA
         window.toggleAuthMode = function() {
             isSignUpMode = !isSignUpMode;
-            document.getElementById("auth-title").innerText = isSignUpMode ? "Stwórz konto" : "Witaj ponownie!";
-            document.getElementById("auth-subtitle").innerText = isSignUpMode ? "Zarejestruj się, aby rozmawiać przy ognisku." : "Cieszymy się, że znowu tu jesteś!";
+            document.getElementById("auth-title").innerText = isSignUpMode ? "Stwórz konto" : "Campfire";
             document.getElementById("auth-username").style.display = isSignUpMode ? "block" : "none";
             document.getElementById("auth-btn").innerText = isSignUpMode ? "Zarejestruj się" : "Zaloguj się";
-            document.getElementById("auth-toggle-text").innerHTML = isSignUpMode ? 'Masz już konto? <span onclick="toggleAuthMode()">Zaloguj się</span>' : 'Potrzebujesz konta? <span onclick="toggleAuthMode()">Zarejestruj się</span>';
+            document.getElementById("auth-toggle-text").innerHTML = isSignUpMode ? 'Masz już konto? <span onclick="toggleAuthMode()">Zaloguj się</span>' : 'Nie masz konta? <span onclick="toggleAuthMode()">Zarejestruj się</span>';
         }
 
         window.handleAuth = function() {
@@ -181,13 +215,24 @@
             const password = document.getElementById("auth-password").value;
             const username = document.getElementById("auth-username").value.trim();
 
-            if(!email || !password) return alert("Uzupełnij pola formularza!");
+            if(!email || !password) return alert("Uzupełnij formularz!");
             if(isSignUpMode && !username) return alert("Wpisz swoją nazwę użytkownika!");
 
             if (isSignUpMode) {
                 createUserWithEmailAndPassword(auth, email, password)
-                    .then((userCredential) => {
-                        return updateProfile(userCredential.user, { displayName: username });
+                    .then(async (userCredential) => {
+                        await setDoc(doc(db, "users", userCredential.user.uid), {
+                            name: username,
+                            status: "Dostępny"
+                        });
+                        
+                        // Zwykła wiadomość powitalna na kanale ogłoszeń
+                        await addDoc(collection(db, "messages"), {
+                            text: `Użytkownik @${username} właśnie dołączył do komunikatora. Witamy!`,
+                            isSystem: true,
+                            channelId: "ogloszenia",
+                            createdAt: serverTimestamp()
+                        });
                     })
                     .catch(error => alert("Błąd: " + error.message));
             } else {
@@ -205,17 +250,20 @@
             if (user) {
                 currentUser = user;
                 document.getElementById("auth-screen").style.display = "none";
-                document.getElementById("chat-screen").style.display = "flex";
+                document.getElementById("chat-screen").style.display = "block";
                 
-                document.getElementById("profile-display-name").innerText = user.displayName || "Harcerz";
-                document.getElementById("profile-display-email").innerText = user.email;
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    userProfileData = userDoc.data();
+                } else {
+                    userProfileData = { name: "Użytkownik", status: "Dostępny" };
+                }
+
+                document.getElementById("profile-display-name").innerText = userProfileData.name;
+                document.getElementById("profile-display-status").innerText = userProfileData.status;
                 
-                // 1. Sprawdź czy użytkownik wszedł z linku zaproszenia i przypisz go do tajnej grupy
                 await checkAndApplyInvite(user.email);
-                // 2. Załaduj listę kanałów tekstowych, do których ma prawo
-                listenToMyChannels();
-                // 3. Załaduj wiadomości
-                loadMessages();
+                selectChannel("ogloszenia", "# ogłoszenia");
             } else {
                 currentUser = null;
                 document.getElementById("auth-screen").style.display = "block";
@@ -231,9 +279,10 @@
 
             await addDoc(collection(db, "messages"), {
                 text: text,
-                senderName: currentUser.displayName || "Druhna/Druh",
-                senderEmail: currentUser.email,
-                channelId: activeGroupId, // Wiadomość trafia do konkretnego ID pokoju
+                senderName: userProfileData.name,
+                senderStatus: userProfileData.status,
+                isSystem: false,
+                channelId: activeGroupId,
                 createdAt: serverTimestamp()
             });
 
@@ -244,7 +293,7 @@
             if (e.key === 'Enter') sendMessage();
         }
 
-        // STRUMIEŃ WIADOMOŚCI W CZASIE RZECZYWISTYM
+        // STRUMIEŃ NASŁUCHIWANIA WIADOMOŚCI
         function loadMessages() {
             if (unsubscribeMessages) unsubscribeMessages();
 
@@ -260,19 +309,20 @@
                 snapshot.forEach((doc) => {
                     const data = doc.data();
                     if(!data.createdAt) return;
-                    
-                    const date = data.createdAt.toDate();
-                    const timeString = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
                     const msgDiv = document.createElement("div");
-                    msgDiv.className = "message";
-                    msgDiv.innerHTML = `
-                        <div class="msg-header">
-                            <span class="sender">${data.senderName}</span>
-                            <span class="time">dziś o ${timeString}</span>
-                        </div>
-                        <div class="text">${data.text}</div>
-                    `;
+                    
+                    if (data.isSystem) {
+                        msgDiv.className = "message system";
+                        msgDiv.innerText = data.text;
+                    } else {
+                        const isMe = data.senderName === userProfileData.name;
+                        msgDiv.className = `message ${isMe ? 'outgoing' : 'incoming'}`;
+                        msgDiv.innerHTML = `
+                            <div class="sender-title">${data.senderName} [${data.senderStatus}]</div>
+                            <div>${data.text}</div>
+                        `;
+                    }
                     messagesBox.appendChild(msgDiv);
                 });
                 messagesBox.scrollTop = messagesBox.scrollHeight;
