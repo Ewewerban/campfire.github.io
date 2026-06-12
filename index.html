@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campfire Chat 🔥</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #fdf6f0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        /* Ekran logowania/rejestracji */
+        .auth-container { background: white; padding: 35px; border-radius: 16px; box-shadow: 0 8px 24px rgba(230,92,0,0.1); width: 100%; max-width: 400px; text-align: center; border: 1px solid #ffe6d5; }
+        .auth-container h2 { margin-bottom: 20px; color: #d35400; font-size: 28px; }
+        .auth-container input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 16px; outline: none; }
+        .auth-container input:focus { border-color: #e67e22; }
+        .auth-container button { width: 100%; padding: 12px; background: #e67e22; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 10px; font-weight: bold; transition: 0.2s; }
+        .auth-container button:hover { background: #d35400; }
+        .auth-container p { margin-top: 15px; font-size: 14px; color: #666; }
+        .auth-container span { color: #e67e22; cursor: pointer; font-weight: bold; }
+
+        /* Ekran Czatu */
+        .chat-container { display: none; width: 100%; max-width: 800px; height: 90vh; background: white; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); flex-direction: column; overflow: hidden; border: 1px solid #eee; }
+        .chat-header { background: #e67e22; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 18px; }
+        .chat-header button { background: transparent; color: white; border: 1px solid white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .chat-header button:hover { background: rgba(255,255,255,0.2); }
+        
+        .messages-box { flex: 1; padding: 20px; overflow-y: auto; background: #fdfbf7; display: flex; flex-direction: column; gap: 12px; }
+        .message { max-width: 75%; padding: 12px 16px; border-radius: 12px; font-size: 15px; line-height: 1.4; position: relative; word-wrap: break-word; }
+        .message .sender { font-size: 11px; color: #777; margin-bottom: 4px; font-weight: bold; }
+        .message.incoming { background: #f0f0f0; align-self: flex-start; border-top-left-radius: 0; color: #333; }
+        .message.outgoing { background: #ffe6d5; align-self: flex-end; border-top-right-radius: 0; color: #d35400; }
+
+        .chat-input-area { padding: 15px; background: #f9f9f9; display: flex; gap: 10px; border-top: 1px solid #eee; }
+        .chat-input-area input { flex: 1; padding: 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
+        .chat-input-area input:focus { border-color: #e67e22; }
+        .chat-input-area button { padding: 14px 28px; background: #e67e22; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .chat-input-area button:hover { background: #d35400; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen" class="auth-container">
+        <h2 id="auth-title">Campfire 🔥</h2>
+        <input type="email" id="auth-email" placeholder="Adres E-mail">
+        <input type="password" id="auth-password" placeholder="Hasło (min. 6 znaków)">
+        <button id="auth-btn" onclick="handleAuth()">Zaloguj się</button>
+        <p id="auth-toggle-text">Nie masz konta? <span onclick="toggleAuthMode()">Zarejestruj się</span></p>
+    </div>
+
+    <div id="chat-screen" class="chat-container">
+        <div class="chat-header">
+            <span id="user-display">Campfire 🔥</span>
+            <button onclick="logout()">Wyloguj</button>
+        </div>
+        <div id="messages-box" class="messages-box"></div>
+        <div class="chat-input-area">
+            <input type="text" id="message-input" placeholder="Napisz coś przy ognisku..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">Wyślij</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+        // Twoje prywatne klucze połączone z Firebase Campfire
+        const firebaseConfig = {
+            apiKey: "AIzaSyCgmxeFXJy4rNXMOwDy8UOj2Xt7MMMUtmM",
+            authDomain: "campfire-d9343.firebaseapp.com",
+            projectId: "campfire-d9343",
+            storageBucket: "campfire-d9343.firebasestorage.app",
+            messagingSenderId: "334032663189",
+            appId: "1:334032663189:web:76f1e09e297a7a652f219c"
+        };
+
+        // Inicjalizacja usług
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let isSignUpMode = false;
+        let currentUser = null;
+
+        // Przełączanie między logowaniem a rejestracją konta
+        window.toggleAuthMode = function() {
+            isSignUpMode = !isSignUpMode;
+            document.getElementById("auth-title").innerText = isSignUpMode ? "Stwórz konto 🔥" : "Campfire 🔥";
+            document.getElementById("auth-btn").innerText = isSignUpMode ? "Zarejestruj się" : "Zaloguj się";
+            document.getElementById("auth-toggle-text").innerHTML = isSignUpMode ? 'Masz już konto? <span onclick="toggleAuthMode()">Zaloguj się</span>' : 'Nie masz konta? <span onclick="toggleAuthMode()">Zarejestruj się</span>';
+        }
+
+        // Obsługa autoryzacji konta
+        window.handleAuth = function() {
+            const email = document.getElementById("auth-email").value;
+            const password = document.getElementById("auth-password").value;
+
+            if(!email || !password) return alert("Wypełnij wszystkie pola!");
+
+            if (isSignUpMode) {
+                createUserWithEmailAndPassword(auth, email, password)
+                    .catch(error => alert("Błąd rejestracji: " + error.message));
+            } else {
+                signInWithEmailAndPassword(auth, email, password)
+                    .catch(error => alert("Błąd logowania: " + error.message));
+            }
+        }
+
+        // Wylogowanie użytkownika
+        window.logout = function() {
+            signOut(auth);
+        }
+
+        // Sprawdzanie w czasie rzeczywistym czy użytkownik jest zalogowany
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById("auth-screen").style.display = "none";
+                document.getElementById("chat-screen").style.display = "flex";
+                document.getElementById("user-display").innerText = `🔥 ${user.email}`;
+                loadMessages();
+            } else {
+                currentUser = null;
+                document.getElementById("auth-screen").style.display = "block";
+                document.getElementById("chat-screen").style.display = "none";
+            }
+        });
+
+        // Wysyłanie nowej wiadomości do bazy danych Cloud Firestore
+        window.sendMessage = async function() {
+            const input = document.getElementById("message-input");
+            const text = input.value.trim();
+            if (!text) return;
+
+            await addDoc(collection(db, "messages"), {
+                text: text,
+                sender: currentUser.email,
+                createdAt: serverTimestamp()
+            });
+
+            input.value = "";
+        }
+
+        window.handleKeyPress = function(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        // Pobieranie strumienia wiadomości w czasie rzeczywistym (Realtime)
+        function loadMessages() {
+            const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
+            onSnapshot(q, (snapshot) => {
+                const messagesBox = document.getElementById("messages-box");
+                messagesBox.innerHTML = "";
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if(!data.createdAt) return; // pominiecie pustych tymczasowych timestampów
+                    
+                    const isMe = data.sender === currentUser.email;
+                    
+                    const msgDiv = document.createElement("div");
+                    msgDiv.className = `message ${isMe ? 'outgoing' : 'incoming'}`;
+                    msgDiv.innerHTML = `<div class="sender">${data.sender}</div><div>${data.text}</div>`;
+                    
+                    messagesBox.appendChild(msgDiv);
+                });
+                messagesBox.scrollTop = messagesBox.scrollHeight; // automatyczny scroll na dół czatu
+            });
+        }
+    </script>
+</body>
+</html>
