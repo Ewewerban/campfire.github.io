@@ -1,0 +1,301 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background: #1e1f22; /* Ciemne tło Discorda */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: #dbdee1;
+}
+
+/* OKNO LOGOWANIA / REJESTRACJI */
+.auth-container {
+    background: #313338;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+}
+
+.auth-container h2 {
+    margin-bottom: 8px;
+    color: white;
+    font-size: 24px;
+}
+
+.auth-container .subtitle {
+    color: #b5bac1;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.auth-container input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    background: #1e1f22;
+    border: 1px solid #111;
+    border-radius: 4px;
+    font-size: 16px;
+    color: white;
+    outline: none;
+}
+
+.auth-container input:focus {
+    border-color: #5865f2;
+}
+
+.auth-container button {
+    width: 100%;
+    padding: 12px;
+    background: #5865f2; /* Kolor przycisku Discord */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 15px;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.auth-container button:hover {
+    background: #4752c4;
+}
+
+.auth-container p {
+    margin-top: 16px;
+    font-size: 14px;
+    color: #949ba4;
+}
+
+.auth-container span {
+    color: #00a8fc;
+    cursor: pointer;
+}
+
+/* INTERFEJS CZATU (A'LA DISCORD) */
+.chat-interface {
+    display: none;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* PANEL BOCZNY (KANALE) */
+.sidebar {
+    width: 260px;
+    background: #2b2d31;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    padding: 16px;
+    font-weight: bold;
+    font-size: 16px;
+    color: white;
+    border-bottom: 1px solid #1f2023;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.create-group-btn {
+    background: transparent;
+    border: none;
+    color: #b5bac1;
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.create-group-btn:hover {
+    color: white;
+}
+
+.groups-list {
+    flex: 1;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+}
+
+.group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: #949ba4;
+    text-align: left;
+    font-size: 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    transition: 0.1s;
+}
+
+.group-item:hover {
+    background: #35373c;
+    color: #dbdee1;
+}
+
+.group-item.active {
+    background: #404249;
+    color: white;
+}
+
+.invite-icon {
+    font-size: 12px;
+    color: #23a55a;
+    background: rgba(35, 165, 90, 0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: none;
+}
+
+.group-item:hover .invite-icon, .group-item.active .invite-icon {
+    display: block;
+}
+
+/* DOLNY PANEL PROFILU */
+.user-profile-bar {
+    padding: 8px;
+    background: #232428;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    max-width: 150px;
+}
+
+.profile-info .display-name {
+    font-weight: bold;
+    font-size: 14px;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-info .user-email {
+    font-size: 12px;
+    color: #949ba4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.logout-btn {
+    background: transparent;
+    color: #f23f43;
+    border: 1px solid #f23f43;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.logout-btn:hover {
+    background: #f23f43;
+    color: white;
+}
+
+/* GŁÓWNY OBSZAR CZATU */
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #313338;
+}
+
+.chat-header {
+    background: #313338;
+    color: white;
+    padding: 16px;
+    font-weight: bold;
+    font-size: 16px;
+    border-bottom: 1px solid #1f2023;
+}
+
+.messages-box {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.message {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+}
+
+.message .msg-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.message .sender {
+    font-weight: 500;
+    color: white;
+    font-size: 15px;
+}
+
+.message .time {
+    font-size: 11px;
+    color: #949ba4;
+}
+
+.message .text {
+    color: #dbdee1;
+    font-size: 15px;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.chat-input-area {
+    padding: 0 20px 24px 20px;
+    background: #313338;
+}
+
+.input-wrapper {
+    background: #383a40;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+}
+
+.input-wrapper input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #dbdee1;
+    font-size: 16px;
+    outline: none;
+}
+
+.input-wrapper input::placeholder {
+    color: #6d737d;
+}
