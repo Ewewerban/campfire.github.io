@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Campfire</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./style.css?v=2">
 </head>
 <body>
 
     <div id="auth-screen" class="auth-container">
-        <h2 id="auth-title">Campfire</h2>
+        <h2>Campfire</h2>
         <div class="subtitle">Zwykły, prosty komunikator</div>
         
         <input type="text" id="auth-username" placeholder="Twoja nazwa użytkownika / Nick" style="display: none;">
@@ -46,7 +46,7 @@
             <div class="chat-header" id="current-group-title"># ogłoszenia</div>
             <div id="messages-box" class="messages-box"></div>
             <div class="chat-input-area">
-                <input type="text" id="message-input" placeholder="Napisz coś..." onkeypress="handleKeyPress(event)">
+                <input type="text" id="message-input" placeholder="Napisz wiadomość..." onkeypress="handleKeyPress(event)">
                 <button id="send-btn" onclick="sendMessage()">Wyślij</button>
             </div>
         </div>
@@ -58,7 +58,6 @@
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, doc, setDoc, getDoc, updateDoc, arrayUnion, query, orderBy, where, onSnapshot, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
-        // WPISZ SWÓJ E-MAIL JAKO ADMINISTRATORA, ŻEBY MÓC PISAĆ NA KANALE OGŁOSZEŃ:
         const ADMIN_EMAIL = "sowaadamek@gmail.com"; 
 
         const firebaseConfig = {
@@ -83,7 +82,6 @@
         const urlParams = new URLSearchParams(window.location.search);
         const inviteCodeFromUrl = urlParams.get('invite');
 
-        // FUNKCJA: Tworzenie nowej grupy / kanału prywatnego
         window.createNewGroupPrompt = async function() {
             const groupName = prompt("Wpisz nazwę nowej grupy (np. Projekty, Ekipa):");
             if (!groupName) return;
@@ -97,25 +95,23 @@
                 members: [currentUser.email]
             });
 
-            alert(`Utworzono grupę: #${cleanName}!\nKod zaproszenia: ${inviteCode}\nLink do skopiowania znajdziesz pod nazwą grupy na liście.`);
+            alert(`Utworzono grupę: #${cleanName}!\nKod zaproszenia: ${inviteCode}`);
         }
 
-        // FUNKCJA: Kopiowanie linku zaproszenia
         window.copyInviteLink = function(e, inviteCode) {
             e.stopPropagation();
             const cleanUrl = window.location.href.split('?')[0];
             const inviteUrl = `${cleanUrl}?invite=${inviteCode}`;
             
             navigator.clipboard.writeText(inviteUrl).then(() => {
-                alert("Skopiowano link zaproszenia! Wyślij go znajomym, aby dołączyli do grupy.");
+                alert("Skopiowano link zaproszenia do schowka!");
             });
         }
 
-        // FUNKCJA: Zwykły Edytor Profilu (Imię i Status)
         window.editProfilePrompt = async function() {
             const newName = prompt("Wpisz nową nazwę użytkownika / nick:", userProfileData.name);
             if (!newName) return;
-            const newStatus = prompt("Wpisz swój status / opis (np. Zajęty, Koduję...):", userProfileData.status);
+            const newStatus = prompt("Wpisz swój status / opis:", userProfileData.status);
             
             userProfileData.name = newName;
             userProfileData.status = newStatus || "Dostępny";
@@ -127,10 +123,8 @@
 
             document.getElementById("profile-display-name").innerText = userProfileData.name;
             document.getElementById("profile-display-status").innerText = userProfileData.status;
-            alert("Profil zaktualizowany!");
         }
 
-        // Sprawdzanie zaproszenia z linku URL
         async function checkAndApplyInvite(userEmail) {
             if (!inviteCodeFromUrl) return;
             const q = query(collection(db, "channels"), where("inviteCode", "==", inviteCodeFromUrl));
@@ -150,7 +144,6 @@
             }
         }
 
-        // Pobieranie listy dostępnych grup użytkownika
         function listenToMyChannels() {
             const q = query(collection(db, "channels"), where("members", "array-contains", currentUser.email));
             
@@ -158,7 +151,6 @@
                 const listContainer = document.getElementById("groups-list");
                 listContainer.innerHTML = "";
 
-                // Kanał ogólny (ogłoszenia) dostępny domyślnie dla każdego
                 const mainBtn = document.createElement("button");
                 mainBtn.className = `group-item ${activeGroupId === "ogloszenia" ? "active" : ""}`;
                 mainBtn.innerHTML = `<span class="channel-name"># ogłoszenia</span>`;
@@ -186,7 +178,6 @@
             const inputField = document.getElementById("message-input");
             const sendBtn = document.getElementById("send-btn");
             
-            // Blokada kanału ogłoszeń dla zwykłych użytkowników
             if (id === "ogloszenia" && currentUser.email !== ADMIN_EMAIL) {
                 inputField.disabled = true;
                 inputField.placeholder = "Tylko administrator może tu pisać.";
@@ -201,7 +192,6 @@
             loadMessages();
         }
 
-        // OBSŁUGA REJESTRACJI I LOGOWANIA
         window.toggleAuthMode = function() {
             isSignUpMode = !isSignUpMode;
             document.getElementById("auth-title").innerText = isSignUpMode ? "Stwórz konto" : "Campfire";
@@ -216,7 +206,7 @@
             const username = document.getElementById("auth-username").value.trim();
 
             if(!email || !password) return alert("Uzupełnij formularz!");
-            if(isSignUpMode && !username) return alert("Wpisz swoją nazwę użytkownika!");
+            if(isSignUpMode && !username) return alert("Wpisz swój nick!");
 
             if (isSignUpMode) {
                 createUserWithEmailAndPassword(auth, email, password)
@@ -226,7 +216,6 @@
                             status: "Dostępny"
                         });
                         
-                        // Zwykła wiadomość powitalna na kanale ogłoszeń
                         await addDoc(collection(db, "messages"), {
                             text: `Użytkownik @${username} właśnie dołączył do komunikatora. Witamy!`,
                             isSystem: true,
@@ -250,7 +239,7 @@
             if (user) {
                 currentUser = user;
                 document.getElementById("auth-screen").style.display = "none";
-                document.getElementById("chat-screen").style.display = "block";
+                document.getElementById("chat-screen").style.display = "flex";
                 
                 const userDoc = await getDoc(doc(db, "users", user.uid));
                 if (userDoc.exists()) {
@@ -271,7 +260,6 @@
             }
         });
 
-        // WYSYŁANIE WIADOMOŚCI
         window.sendMessage = async function() {
             const input = document.getElementById("message-input");
             const text = input.value.trim();
@@ -293,7 +281,6 @@
             if (e.key === 'Enter') sendMessage();
         }
 
-        // STRUMIEŃ NASŁUCHIWANIA WIADOMOŚCI
         function loadMessages() {
             if (unsubscribeMessages) unsubscribeMessages();
 
